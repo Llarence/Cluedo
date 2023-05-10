@@ -11,6 +11,8 @@ import javax.swing.text.*
 class ChatWindow(observer: Boolean, private val onSend: (String) -> Unit) : JFrame() {
     private val textBox = JTextPane()
 
+    val button: JButton?
+
     init {
         title = "Chat"
 
@@ -44,7 +46,7 @@ class ChatWindow(observer: Boolean, private val onSend: (String) -> Unit) : JFra
 
             panel.add(input, BorderLayout.CENTER)
 
-            val button = JButton("Send!")
+            button = JButton("Send!")
             button.addActionListener {
                 if (input.text != "") {
                     onSend(input.text)
@@ -52,9 +54,13 @@ class ChatWindow(observer: Boolean, private val onSend: (String) -> Unit) : JFra
                 }
             }
 
+            button.isEnabled = false
+
             panel.add(button, BorderLayout.LINE_END)
 
             add(panel, BorderLayout.PAGE_END)
+        } else {
+            button = null
         }
 
         pack()
@@ -62,6 +68,10 @@ class ChatWindow(observer: Boolean, private val onSend: (String) -> Unit) : JFra
         setSize(500, 500)
 
         isVisible = true
+    }
+
+    fun enableSending() {
+        button?.isEnabled = true
     }
 
     fun addChatMessage(chatMessage: ChatMessage) {

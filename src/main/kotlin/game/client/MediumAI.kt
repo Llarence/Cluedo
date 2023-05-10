@@ -8,11 +8,17 @@ import kotlin.random.Random
 class MediumAI(address: InetAddress) : AI(address) {
     private val chatBot = AIChatBot(Random.nextDouble(), Random.nextDouble(), Random.nextDouble(), Random.nextDouble())
 
-    private val revealed = mutableListOf<Card>()
+    private val revealed = mutableMapOf<People, MutableSet<Card>>()
 
     private var currWinGuess: Triple<People, Weapons, Rooms>? = null
 
     private val tricklessness = Random.nextInt(2,6)
+
+    init {
+        for (player in players) {
+            revealed[player.person] = mutableSetOf()
+        }
+    }
 
     private fun getKnownCards(useMyCards: Boolean): Array<Card> {
         val knownCards = mutableSetOf<Card>()
@@ -24,8 +30,8 @@ class MediumAI(address: InetAddress) : AI(address) {
         knownCards.addAll(publicCards)
         for (event in history) {
             if (event is RumorEvent) {
-                if (event.response != null) {
-                    knownCards.add(event.response.second)
+                if (event.response?.second != null) {
+                    knownCards.add(event.response.second!!)
                 }
             }
         }
@@ -165,10 +171,11 @@ class MediumAI(address: InetAddress) : AI(address) {
             }
         }
 
+        val currRevealed = revealed[currRumor!!.rumorStarter]!!
         val unrevealedCounterExamples = mutableListOf<Card>()
         unrevealedCounterExamples.addAll(counterExamples)
         for (counterExample in counterExamples) {
-            if (counterExample in revealed) {
+            if (counterExample in currRevealed) {
                 unrevealedCounterExamples.remove(counterExample)
             }
         }
@@ -176,7 +183,7 @@ class MediumAI(address: InetAddress) : AI(address) {
         val card: Card
         if (unrevealedCounterExamples.size != 0) {
             card = unrevealedCounterExamples.random()
-            revealed.add(card)
+            currRevealed.add(card)
         } else {
             card = counterExamples.random()
         }

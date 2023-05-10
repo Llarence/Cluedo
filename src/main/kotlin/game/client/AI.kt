@@ -5,7 +5,7 @@ import java.net.InetAddress
 
 abstract class Event
 
-class RumorEvent(val rumorStarter: People, val person: People, val weapon: Weapons, val room: Rooms, val response: Pair<People, Card>?) : Event()
+class RumorEvent(val rumorStarter: People, val person: People, val weapon: Weapons, val room: Rooms, val response: Pair<People, Card?>?) : Event()
 
 class GuessEvent(val guesser: People, val person: People, val weapon: Weapons, val room: Rooms) : Event()
 
@@ -64,7 +64,8 @@ abstract class AI(address: InetAddress) : Client(address, false) {
         currRumor = RumorEvent(currPlayer.person, person, weapon, room, null)
     }
 
-    override fun onCounterExample(person: People, card: Card) {
+    // Maybe it should also record the card if the AI sent it
+    override fun onCounterExample(person: People, card: Card?) {
         history.add(RumorEvent(currRumor!!.rumorStarter, currRumor!!.person, currRumor!!.weapon, currRumor!!.room, Pair(person, card)))
         currRumor = null
     }

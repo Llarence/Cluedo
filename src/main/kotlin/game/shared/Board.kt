@@ -84,7 +84,6 @@ object Board {
             newTiles = mutableListOf()
         }
 
-
         possibleMoves.remove(locationFrom)
         return possibleMoves.toTypedArray()
     }

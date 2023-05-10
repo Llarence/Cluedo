@@ -101,6 +101,28 @@ class RoomCard(val room: Rooms) : Card() {
     }
 }
 
+fun getCards(): List<Card> {
+    val list = mutableListOf<Card>()
+    for (person in People.values()) {
+        val curr = PersonCard(person)
+        list.add((curr))
+    }
+
+    for (weapon in Weapons.values()) {
+        val curr = WeaponCard(weapon)
+        list.add((curr))
+    }
+
+    for (room in Rooms.values()) {
+        val curr = RoomCard(room)
+        list.add((curr))
+    }
+
+    return list
+}
+
+val allCards = getCards()
+
 abstract class Location : Serializable
 
 class PointLocation(val x: Int, val y: Int) : Location() {

@@ -3,6 +3,7 @@ package game
 import com.formdev.flatlaf.FlatDarculaLaf
 import game.client.DisplayClient
 import game.client.EasyAI
+import game.client.HardAI
 import game.client.MediumAI
 import game.server.Server
 import java.net.InetAddress
@@ -23,6 +24,11 @@ fun initServer() {
 
     val numMediumAIs = JOptionPane.showOptionDialog(null, "How many medium ais?", "Please select", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, (0..numPlayers - numEasyAIs).toList().toTypedArray(), 0)
     if (numMediumAIs == -1) {
+        exitProcess(0)
+    }
+
+    val numHardAIs = JOptionPane.showOptionDialog(null, "How many hard ais?", "Please select", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, (0..numPlayers - numEasyAIs - numMediumAIs).toList().toTypedArray(), 0)
+    if (numHardAIs == -1) {
         exitProcess(0)
     }
 
@@ -55,6 +61,12 @@ fun initServer() {
         for (i in 0 until numMediumAIs) {
             Thread {
                 MediumAI(InetAddress.getLocalHost()).run()
+            }.start()
+        }
+
+        for (i in 0 until numHardAIs) {
+            Thread {
+                HardAI(InetAddress.getLocalHost()).run()
             }.start()
         }
     } catch (_: Exception) {

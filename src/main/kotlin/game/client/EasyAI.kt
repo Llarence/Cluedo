@@ -19,8 +19,8 @@ class EasyAI(address: InetAddress) : AI(address) {
         knownCards.addAll(publicCards)
         for (event in history) {
             if (event is RumorEvent) {
-                if (event.response != null) {
-                    knownCards.add(event.response.second)
+                if (event.response?.second != null) {
+                    knownCards.add(event.response.second!!)
                 }
             }
         }

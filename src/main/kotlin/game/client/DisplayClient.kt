@@ -35,6 +35,7 @@ class DisplayClient(address: InetAddress, observer: Boolean) : Client(address, o
     }
     
     private fun updateWindow(function: () -> Unit) {
+        // This feels unsafe
         window.graphicsLock.lock()
         function()
         window.graphicsLock.unlock()
@@ -93,8 +94,12 @@ class DisplayClient(address: InetAddress, observer: Boolean) : Client(address, o
         window.displayRequest("${currPlayer.person} has started a rumor that $person did the murder with the $weapon in the $room", arrayOf("Ok"))
     }
 
-    override fun onCounterExample(person: People, card: Card) {
-        window.displayRequest("$person has revealed that they have $card", arrayOf("Ok"))
+    override fun onCounterExample(person: People, card: Card?) {
+        if (card == null) {
+            window.displayRequest("$person has revealed that they have a counter example", arrayOf("Ok"))
+        } else {
+            window.displayRequest("$person has revealed that they have $card", arrayOf("Ok"))
+        }
     }
 
     override fun onClueGuess(person: People, weapon: Weapons, room: Rooms) {
@@ -118,6 +123,8 @@ class DisplayClient(address: InetAddress, observer: Boolean) : Client(address, o
         updateWindow {
             window.playerIndex = players.indexOfFirst { it.person == person }
         }
+
+        chatWindow.enableSending()
 
         return person
     }

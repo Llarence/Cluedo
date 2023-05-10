@@ -20,14 +20,11 @@ abstract class Client(address: InetAddress, private val observer: Boolean) {
     private var done = false
 
     private fun runChat() {
-        while (true) {
-            val chatMessage = connection.receiveChatMessage()
-
-            if (chatMessage != null) {
-                onChat(chatMessage)
-            } else {
-                Thread.sleep(100)
+        try {
+            while (true) {
+                onChat(connection.receiveChatMessage())
             }
+        } catch (_: InterruptedException) {
         }
     }
 
@@ -49,6 +46,7 @@ abstract class Client(address: InetAddress, private val observer: Boolean) {
                 packet = connection.receivePacket()
             } catch (_: java.lang.Exception) {
                 done = true
+                chatThread.interrupt()
                 chatThread.join()
                 return
             }
@@ -130,7 +128,7 @@ abstract class Client(address: InetAddress, private val observer: Boolean) {
 
     internal abstract fun onRumor(person: People, weapon: Weapons)
 
-    internal abstract fun onCounterExample(person: People, card: Card)
+    internal abstract fun onCounterExample(person: People, card: Card?)
 
     internal abstract fun onClueGuess(person: People, weapon: Weapons, room: Rooms)
 

@@ -32,7 +32,7 @@ class RequestCounterExample : Packet(), Serializable
 
 class RespondCounterExample(val card: Card?) : Packet(), Serializable
 
-class AlertCounterExample(val person: People, val card: Card) : Packet(), Serializable
+class AlertCounterExample(val person: People, val card: Card?) : Packet(), Serializable
 
 class RequestClueGuess : Packet(), Serializable
 

@@ -3,7 +3,6 @@ package game.shared
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
 import java.net.Socket
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.locks.ReentrantLock
 
@@ -17,7 +16,7 @@ class Connection(private val socket: Socket) {
     private val input = ObjectInputStream(socket.getInputStream())
 
     private val packetInput = LinkedBlockingQueue<Packet>()
-    private val chatMessageInput = ConcurrentLinkedQueue<ChatMessage>()
+    private val chatMessageInput = LinkedBlockingQueue<ChatMessage>()
 
     private val thread = Thread(::readSteam)
 
@@ -28,14 +27,17 @@ class Connection(private val socket: Socket) {
     }
 
     private fun readSteam() {
-        while (true) {
-            val received = input.readUnshared()
+        try {
+            while (true) {
+                val received = input.readUnshared()
 
-            if (received is Packet) {
-                packetInput.add(received)
-            } else {
-                chatMessageInput.add(received as ChatMessage)
+                if (received is Packet) {
+                    packetInput.add(received)
+                } else {
+                    chatMessageInput.add(received as ChatMessage)
+                }
             }
+        } catch (_: InterruptedException) {
         }
     }
 
@@ -55,8 +57,8 @@ class Connection(private val socket: Socket) {
         writeLock.unlock()
     }
 
-    fun receiveChatMessage(): ChatMessage? {
-        return chatMessageInput.poll()
+    fun receiveChatMessage(): ChatMessage {
+        return chatMessageInput.take()
     }
 
     private fun finalize() {

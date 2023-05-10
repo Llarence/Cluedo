@@ -15,7 +15,7 @@ class Server(private val numPlayers: Int) {
     private val eliminatedPlayers = mutableListOf<Triple<Connection?, PlayerData, Array<Card>?>>()
     private lateinit var truth: Triple<People, Weapons, Rooms>
 
-    private val chatThread = Thread { runChat() }
+    private val chatThreads = mutableListOf<Thread>()
     private val pattern = Pattern.compile("[A-Za-z0-9\".,'_ ]")
 
     private fun <T : Any?> tryUntil(function: () -> T): T {
@@ -23,7 +23,9 @@ class Server(private val numPlayers: Int) {
             try {
                 return function()
             } catch (e: Exception) {
-                e.printStackTrace()
+                if (e is InterruptedException) {
+                    println(e.stackTrace)
+                }
             }
         }
     }
@@ -34,42 +36,29 @@ class Server(private val numPlayers: Int) {
         }
     }
 
-    private fun runChat() {
-        while (true) {
-            var allNull = true
+    private fun runChat(player: Pair<Connection, PlayerData>) {
+        try {
+            while (true) {
+                val chatMessage = tryUntil {
+                    val chatMessage = player.first.receiveChatMessage()
 
-            for (player in players) {
-                if (player.first != null) {
-                    val chatMessage = tryUntil {
-                        val chatMessage = player.first!!.receiveChatMessage()
-
-                        if (chatMessage != null) {
-                            // This doesn't really make sense, but maybe checks the unchecked cast
-                            if (chatMessage.person != player.second.person) {
-                                throw Exception("TextDoesn'tMatchSender")
-                            }
-
-                            if (chatMessage.text == "" || !pattern.matcher(chatMessage.text).find()) {
-                                throw Exception("InvalidText")
-                            }
-                        }
-
-                        chatMessage
+                    // This doesn't really make sense, but maybe checks the unchecked cast
+                    if (chatMessage.person != player.second.person) {
+                        throw Exception("TextDoesn'tMatchSender")
                     }
 
-                    if (chatMessage != null) {
-                        for (listener in listenerConnections) {
-                            listener.sendChatMessage(chatMessage.person, chatMessage.text)
-                        }
-
-                        allNull = false
+                    if (chatMessage.text == "" || !pattern.matcher(chatMessage.text).find()) {
+                        throw Exception("InvalidText")
                     }
+
+                    chatMessage
+                }
+
+                for (listener in listenerConnections) {
+                    listener.sendChatMessage(chatMessage.person, chatMessage.text)
                 }
             }
-
-            if (!allNull) {
-                Thread.sleep(100)
-            }
+        } catch (_: InterruptedException) {
         }
     }
 
@@ -181,7 +170,13 @@ class Server(private val numPlayers: Int) {
 
         println("Added empty players")
 
-        chatThread.start()
+        for (player in players) {
+            if (player.first != null) {
+                val thread = Thread { runChat(Pair(player.first!!, player.second)) }
+                thread.start()
+                chatThreads.add(thread)
+            }
+        }
 
         println("Started chat")
     }
@@ -213,7 +208,7 @@ class Server(private val numPlayers: Int) {
             if (room != null) {
                 println("   They moved to $room")
             } else {
-                println("   They moved to the cluedo")
+                println("   They moved to the Cluedo")
             }
         }
     }
@@ -243,10 +238,10 @@ class Server(private val numPlayers: Int) {
 
         var wasCounterExample = false
         for (i in playerIndex + 1 until playerIndex + numPlayers) {
-            val targetPlayer = players[i % numPlayers]
+            val respondingPlayer = players[i % numPlayers]
 
             var hasCounterExample = false
-            for (testCard in targetPlayer.third!!) {
+            for (testCard in respondingPlayer.third!!) {
                 if (testCard is PersonCard) {
                     if (testCard.person == rumorData.person) {
                         hasCounterExample = true
@@ -270,12 +265,12 @@ class Server(private val numPlayers: Int) {
                 null
             } else{
                 tryUntil {
-                    targetPlayer.first!!.sendPacket(RequestCounterExample())
+                    respondingPlayer.first!!.sendPacket(RequestCounterExample())
 
-                    val card = (targetPlayer.first!!.receivePacket() as RespondCounterExample).card
+                    val card = (respondingPlayer.first!!.receivePacket() as RespondCounterExample).card
 
                     var haveCard = false
-                    for (testCard in targetPlayer.third!!) {
+                    for (testCard in respondingPlayer.third!!) {
                         if (testCard is PersonCard) {
                             if (testCard.person == rumorData.person) {
                                 haveCard = true
@@ -307,10 +302,17 @@ class Server(private val numPlayers: Int) {
             }
 
             if (card != null) {
-                sendAlert(AlertCounterExample(targetPlayer.second.person, card))
+                for (listener in listenerConnections) {
+                    if (player.first == listener) {
+                        listener.sendPacket(AlertCounterExample(respondingPlayer.second.person, card))
+                    } else {
+                        listener.sendPacket(AlertCounterExample(respondingPlayer.second.person, null))
+                    }
+                }
+
                 wasCounterExample = true
 
-                println("   ${targetPlayer.second.person} had a counter example $card")
+                println("   ${respondingPlayer.second.person} had a counter example $card")
                 break
             }
         }
@@ -384,7 +386,10 @@ class Server(private val numPlayers: Int) {
             }
         }
 
-        chatThread.join()
+        for (chatThread in chatThreads) {
+            chatThread.interrupt()
+            chatThread.join()
+        }
         println("Chat Closed")
 
         closeAll()
