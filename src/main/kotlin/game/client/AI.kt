@@ -15,6 +15,8 @@ abstract class AI(address: InetAddress) : Client(address, false) {
 
     internal val players: Array<PlayerData>
 
+    internal var playingPlayers = arrayOf<PlayerData>()
+
     internal lateinit var publicCards: Array<Card>
 
     internal lateinit var myCards: Array<Card>
@@ -36,6 +38,8 @@ abstract class AI(address: InetAddress) : Client(address, false) {
 
     override fun onPersonPicked(person: People) {
         peopleLeft.remove(person)
+
+        playingPlayers += players.find { it.person == person }!!
     }
 
     override fun onHand(cards: Array<Card>) {

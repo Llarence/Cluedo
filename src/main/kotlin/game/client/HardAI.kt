@@ -10,79 +10,76 @@ class PathNode(val location: Location, val prev: PathNode?)
 class HardAI(address: InetAddress) : AI(address) {
     private val chatBot = AIChatBot(Random.nextDouble(), Random.nextDouble().pow(2), Random.nextDouble().pow(2), Random.nextDouble())
 
-    private val handSize = myCards.size / players.size
-
-    private val knownsNot = mutableSetOf(*publicCards)
+    private var knowledgeInited = false
+    private val knownsNot = mutableSetOf<Card>()
+    // This could be a list
     private var knowns: Triple<People?, Weapons?, Rooms?> = Triple(null, null, null)
     private val cardsHas = mutableMapOf<People, MutableSet<Card>>()
     private val cardsNoHas = mutableMapOf<People, MutableSet<Card>>()
 
+    private var revealedInited = false
     private val revealed = mutableMapOf<People, MutableSet<Card>>()
 
-    init {
-        for (player in players) {
-            revealed[player.person] = mutableSetOf()
-        }
-    }
-
     private val rollExpectation = Random.nextInt(4, 10)
-    private val movementToScore = Random.nextInt(0, 3) * players.size
+    private var movementToScore = Random.nextInt(0, 3)
 
     private lateinit var pickedRumor: Pair<People, Weapons>
 
     private fun addCardHas(person: People, card: Card) {
         knownsNot.add(card)
         cardsHas[person]!!.add(card)
-        for (otherPlayer in players) {
+        for (otherPlayer in playingPlayers) {
             if (otherPlayer.person != person) {
                 cardsNoHas[otherPlayer.person]!!.add(card)
             }
         }
     }
 
+    // Could just add all cardsNoHas to knownsNot
     private fun updateKnowledge() {
-        for (player in players) {
-            val playerKnowns = mutableSetOf<Card>()
-
-            if (player.person == self) {
-                knownsNot.addAll(myCards)
-                playerKnowns.addAll(myCards)
+        if (!knowledgeInited) {
+            for (player in playingPlayers) {
+                cardsHas[player.person] = mutableSetOf()
+                cardsNoHas[player.person] = mutableSetOf(*publicCards)
             }
 
-            cardsHas[player.person] = playerKnowns
-            for (otherPlayer in players) {
-                if (otherPlayer.person != player.person) {
-                    cardsNoHas[otherPlayer.person]!!.addAll(playerKnowns)
+            knownsNot.addAll(publicCards)
+
+            knownsNot.addAll(myCards)
+            cardsHas[self]!!.addAll(myCards)
+            for (otherPlayer in playingPlayers) {
+                if (otherPlayer.person != self) {
+                    cardsNoHas[otherPlayer.person]!!.addAll(myCards)
                 }
             }
 
-            cardsNoHas[player.person] = mutableSetOf(*publicCards)
+            knowledgeInited = true
         }
 
         // More deductions available
-        outer@while (true) {
+        outer2@while (true) {
             val sizeKnownsNot = knownsNot.size
             val sizeKnowns = if (knowns.first != null) { 1 } else { 0 } + if (knowns.second != null) { 1 } else { 0 } + if (knowns.third != null) { 1 } else { 0 }
             val sizeCardsHas = mutableMapOf<People, Int>()
             val sizeCardsNoHas = mutableMapOf<People, Int>()
-            for (player in players) {
+            for (player in playingPlayers) {
                 sizeCardsHas[player.person] = cardsHas[player.person]!!.size
                 sizeCardsNoHas[player.person] = cardsNoHas[player.person]!!.size
             }
 
             for (event in history) {
                 if (event is RumorEvent) {
+                    val personCard = PersonCard(event.person)
+                    val weaponCard = WeaponCard(event.weapon)
+                    val roomCard = RoomCard(event.room)
+
                     if (event.response != null) {
                         if (event.response.second != null) {
                             addCardHas(event.response.first, event.response.second!!)
                         } else {
-                            val personCard = PersonCard(event.person)
-                            val weaponCard = WeaponCard(event.weapon)
-                            val roomCard = RoomCard(event.room)
-
-                            val personNoHas = cardsNoHas[event.response.first]!!.contains(personCard)
-                            val weaponNoHas = cardsNoHas[event.response.first]!!.contains(weaponCard)
-                            val roomNoHas = cardsNoHas[event.response.first]!!.contains(roomCard)
+                            val personNoHas = personCard in cardsNoHas[event.response.first]!!
+                            val weaponNoHas = weaponCard in cardsNoHas[event.response.first]!!
+                            val roomNoHas = roomCard in cardsNoHas[event.response.first]!!
 
                             if (weaponNoHas && roomNoHas) {
                                 addCardHas(event.response.first, personCard)
@@ -100,15 +97,19 @@ class HardAI(address: InetAddress) : AI(address) {
 
                     val starterIndex = players.indexOfLast { it.person == event.rumorStarter }
                     for (i in starterIndex + 1 until starterIndex + players.size) {
-                        val person = players[i].person
+                        val person = players[i % players.size].person
+
+                        if (!playingPlayers.any { it.person == person }) {
+                            continue
+                        }
 
                         if (person == event.response?.first) {
                             break
                         }
 
-                        cardsNoHas[person]!!.add(PersonCard(event.person))
-                        cardsNoHas[person]!!.add(WeaponCard(event.weapon))
-                        cardsNoHas[person]!!.add(RoomCard(event.room))
+                        cardsNoHas[person]!!.add(personCard)
+                        cardsNoHas[person]!!.add(weaponCard)
+                        cardsNoHas[person]!!.add(roomCard)
                     }
                 } else {
                     event as GuessEvent
@@ -131,16 +132,17 @@ class HardAI(address: InetAddress) : AI(address) {
                 }
             }
 
-            for (player in players) {
+            // Rework so it is valid maybe
+            for (player in playingPlayers) {
                 val currCardsHas = cardsHas[player.person]!!
                 val currCardsNoHas = cardsNoHas[player.person]!!
-                if (currCardsHas.size == handSize) {
+                if (currCardsHas.size == myCards.size) {
                     for (card in allCards) {
                         if (card !in currCardsHas) {
                             currCardsNoHas.add(card)
                         }
                     }
-                } else if (currCardsNoHas.size == allCards.size - handSize) {
+                } else if (currCardsNoHas.size == allCards.size - myCards.size) {
                     for (card in allCards) {
                         if (card !in currCardsNoHas) {
                             addCardHas(player.person, card)
@@ -149,18 +151,32 @@ class HardAI(address: InetAddress) : AI(address) {
                 }
             }
 
-            for (card in allCards) {
+            var person: People? = null
+            var weapon: Weapons? = null
+            var room: Rooms? = null
+
+            outer1@for (card in allCards) {
                 if (card in publicCards) {
-                    break
+                    continue
                 }
 
-                for (player in players) {
+                for (player in playingPlayers) {
                     if (card !in cardsNoHas[player.person]!!) {
-                        break
+                        continue@outer1
                     }
                 }
 
-                knownsNot.add(card)
+                if (card is PersonCard) {
+                    person = card.person
+                }
+
+                if (card is WeaponCard) {
+                    weapon = card.weapon
+                }
+
+                if (card is RoomCard) {
+                    room = card.room
+                }
             }
 
             val possiblePeople = People.values().toMutableList()
@@ -181,47 +197,53 @@ class HardAI(address: InetAddress) : AI(address) {
                 }
             }
 
-            val person = if (possiblePeople.size == 1) {
-                possiblePeople[0]
-            } else {
-                null
+            if (person == null) {
+                person = if (possiblePeople.size == 1) {
+                    possiblePeople[0]
+                } else {
+                    null
+                }
+
+                if (person != null) {
+                    val personCard = PersonCard(person)
+                    for (player in playingPlayers) {
+                        cardsNoHas[player.person]!!.add(personCard)
+                    }
+                }
             }
 
-            val weapon = if (possibleWeapons.size == 1) {
-                possibleWeapons[0]
-            } else {
-                null
+            if (weapon == null) {
+                weapon = if (possibleWeapons.size == 1) {
+                    possibleWeapons[0]
+                } else {
+                    null
+                }
+
+                if (weapon != null) {
+                    val weaponCard = WeaponCard(weapon)
+                    for (player in playingPlayers) {
+                        cardsNoHas[player.person]!!.add(weaponCard)
+                    }
+                }
             }
 
-            val room = if (possibleRooms.size == 1) {
-                possibleRooms[0]
-            } else {
-                null
+            if (room == null) {
+                room = if (possibleRooms.size == 1) {
+                    possibleRooms[0]
+                } else {
+                    null
+                }
+
+                if (room != null) {
+                    val roomCard = RoomCard(room)
+                    for (player in playingPlayers) {
+                        cardsNoHas[player.person]!!.add(roomCard)
+                    }
+                }
             }
 
             // Could check if this is all not null and end it, but nah
             knowns = Triple(person, weapon, room)
-
-            if (person != null) {
-                val personCard = PersonCard(person)
-                for (player in players) {
-                    cardsNoHas[player.person]!!.add(personCard)
-                }
-            }
-
-            if (weapon != null) {
-                val weaponCard = WeaponCard(weapon)
-                for (player in players) {
-                    cardsNoHas[player.person]!!.add(weaponCard)
-                }
-            }
-
-            if (room != null) {
-                val roomCard = RoomCard(room)
-                for (player in players) {
-                    cardsNoHas[player.person]!!.add(roomCard)
-                }
-            }
 
             if (sizeKnownsNot != knownsNot.size) {
                 continue
@@ -231,13 +253,13 @@ class HardAI(address: InetAddress) : AI(address) {
                 continue
             }
 
-            for (player in players) {
+            for (player in playingPlayers) {
                 if (sizeCardsHas[player.person] != cardsHas[player.person]!!.size) {
-                    continue@outer
+                    continue@outer2
                 }
 
                 if (sizeCardsNoHas[player.person] != cardsNoHas[player.person]!!.size) {
-                    continue@outer
+                    continue@outer2
                 }
             }
 
@@ -245,37 +267,36 @@ class HardAI(address: InetAddress) : AI(address) {
         }
     }
 
+    // Should optimize
     private fun generateShortestPath(startLocation: Location, endLocation: Location, startMoves: Int): Pair<Location, Int>? {
-        val startAndSame = if (startLocation is PointLocation && endLocation is PointLocation) {
-            startLocation.x == endLocation.x && startLocation.y == endLocation.y
-        } else {
-            false
+        if (startLocation is PointLocation && endLocation is PointLocation) {
+            if (startLocation.x == endLocation.x && startLocation.y == endLocation.y) {
+                return Pair(startLocation, 0)
+            }
         }
 
-        if (startAndSame) {
-            return Pair(startLocation, 0)
-        }
-
+        // Could have old nodes but I am too lazy
         val currNodes = mutableListOf(PathNode(startLocation, null))
         val newNodes = mutableListOf<PathNode>()
 
         var moves = 1
         while (true) {
+            val currMoves = if (moves == 1) {
+                startMoves
+            } else {
+                rollExpectation
+            }
+
+            val currPlayers = if (moves == 1) {
+                players
+            } else {
+                arrayOf()
+            }
+
             for (node in currNodes) {
-                val currMoves = if (moves == 1) {
-                    startMoves
-                } else {
-                    rollExpectation
-                }
-
-                val currPlayers = if (moves == 1) {
-                    players
-                } else {
-                    arrayOf()
-                }
-
-                val currNewNodes = mutableListOf<PathNode>()
-                for (location in Board.getPossibleMoves(node.location, currMoves, currPlayers)) {
+                val possibleMoves = Board.getPossibleMoves(node.location, currMoves, currPlayers)
+                possibleMoves.shuffle()
+                for (location in possibleMoves) {
                     val isEnd = if (location is PointLocation && endLocation is PointLocation) {
                         location.x == endLocation.x && location.y == endLocation.y
                     } else if (location is RoomLocation && endLocation is RoomLocation) {
@@ -285,17 +306,18 @@ class HardAI(address: InetAddress) : AI(address) {
                     }
 
                     if (isEnd) {
+                        var prev = PathNode(location, node)
                         var curr = node
                         while (true) {
                             if (curr.prev == null) {
                                 if (moves == 1) {
                                     var occupied = false
-                                    if (curr.location is PointLocation) {
+                                    if (prev.location is PointLocation) {
                                         for (testPlayer in players) {
                                             if (testPlayer.location is PointLocation) {
                                                 val testLocation: PointLocation = testPlayer.location
 
-                                                if ((curr.location as PointLocation).x == testLocation.x && (curr.location as PointLocation).y == testLocation.x) {
+                                                if ((prev.location as PointLocation).x == testLocation.x && (prev.location as PointLocation).y == testLocation.x) {
                                                     occupied = true
                                                 }
                                             }
@@ -307,18 +329,21 @@ class HardAI(address: InetAddress) : AI(address) {
                                     }
                                 }
 
-                                return Pair(curr.location, moves)
+                                return Pair(prev.location, moves)
                             }
 
-                            curr = node.prev!!
+                            prev = curr
+                            curr = curr.prev!!
                         }
                     }
 
-                    currNewNodes.add(PathNode(location, node))
+                    newNodes.add(PathNode(location, node))
                 }
-
-                newNodes.addAll(currNewNodes)
             }
+
+            currNodes.clear()
+            currNodes.addAll(newNodes)
+            newNodes.clear()
 
             moves++
         }
@@ -334,7 +359,11 @@ class HardAI(address: InetAddress) : AI(address) {
         var probability = 1.0
         val starterIndex = players.indexOfLast { it.person == self }
         for (i in starterIndex + 1 until starterIndex + players.size) {
-            val person = players[i].person
+            val person = players[i % players.size].person
+
+            if (!playingPlayers.any { it.person == person }) {
+                continue
+            }
 
             val currCardsHas = cardsHas[person]!!
             if (cardsHas[person]!!.any { it in cards }) {
@@ -343,7 +372,7 @@ class HardAI(address: InetAddress) : AI(address) {
 
             // I think the probabilities work
             val currCardsNoHas = cardsNoHas[person]!!
-            val slots = handSize - currCardsHas.size
+            val slots = myCards.size - currCardsHas.size
             val peopleSize = People.values().size
             val weaponSize = Weapons.values().size
             val roomSize =  Rooms.values().size
@@ -380,10 +409,6 @@ class HardAI(address: InetAddress) : AI(address) {
 
         updateKnowledge()
 
-        if (knowns.first != null && knowns.second != null && knowns.third != null) {
-            return generateShortestPath(players.find { it.person == self }!!.location, RoomLocation(null), moves)!!.first
-        }
-
         val rumorAndValue = mutableListOf<Pair<Triple<People, Weapons, Rooms>, Double>>()
         for (person in People.values()) {
             for (room in Rooms.values()) {
@@ -396,10 +421,25 @@ class HardAI(address: InetAddress) : AI(address) {
         rumorAndValue.shuffle()
         rumorAndValue.sortByDescending { it.second }
 
+        if (knowns.first != null && knowns.second != null && knowns.third != null) {
+            val location = generateShortestPath(players.find { it.person == self }!!.location, RoomLocation(null), moves)!!.first
+            if (location is RoomLocation) {
+                val room = location.room
+                if (room != null) {
+                    val bestRumor = rumorAndValue.first { it.first.third == room }
+                    pickedRumor = Pair(bestRumor.first.first, bestRumor.first.second)
+                }
+            }
+
+            return location
+        }
+
+        var i = 0
         var bestRumorAndValueAndLocation: Triple<Triple<People, Weapons, Rooms>, Double, Location>? = null
         while (true) {
-            val currRumorAndValue = rumorAndValue[0]
+            val currRumorAndValue = rumorAndValue[i]
 
+            // Could also skip pathfinding if the rooms are the same
             if (bestRumorAndValueAndLocation != null) {
                 if (bestRumorAndValueAndLocation.second > currRumorAndValue.second) {
                     break
@@ -408,21 +448,26 @@ class HardAI(address: InetAddress) : AI(address) {
 
             val path = generateShortestPath(players.find { it.person == self }!!.location, RoomLocation(currRumorAndValue.first.third), moves)
             if (path != null) {
-                val value = currRumorAndValue.second - path.second * movementToScore
+                val value = currRumorAndValue.second - path.second * movementToScore * playingPlayers.size
 
                 if (bestRumorAndValueAndLocation == null || bestRumorAndValueAndLocation.second < value) {
                     bestRumorAndValueAndLocation = Triple(currRumorAndValue.first, value, path.first)
                 }
             }
 
-            rumorAndValue.removeAt(0)
+            i++
 
-            if (rumorAndValue.size == 0) {
+            if (rumorAndValue.size == i) {
                 break
             }
         }
 
-        pickedRumor = Pair(bestRumorAndValueAndLocation!!.first.first, bestRumorAndValueAndLocation.first.second)
+        if (bestRumorAndValueAndLocation!!.third is RoomLocation) {
+            val room = (bestRumorAndValueAndLocation.third as RoomLocation).room
+            val bestRumor = rumorAndValue.first { it.first.third == room }
+            pickedRumor = Pair(bestRumor.first.first, bestRumor.first.second)
+        }
+
         return bestRumorAndValueAndLocation.third
     }
 
@@ -434,6 +479,14 @@ class HardAI(address: InetAddress) : AI(address) {
         val text = chatBot.getRumorResponse(currRumor!!.person, currRumor!!.weapon, currRumor!!.room)
         if (text != null) {
             sendChatMessage(text)
+        }
+
+        if (!revealedInited) {
+            for (player in playingPlayers) {
+                revealed[player.person] = mutableSetOf()
+            }
+
+            revealedInited = true
         }
 
         val counterExamples = mutableListOf<Card>()

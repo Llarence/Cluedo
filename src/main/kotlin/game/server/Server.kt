@@ -23,8 +23,8 @@ class Server(private val numPlayers: Int) {
             try {
                 return function()
             } catch (e: Exception) {
-                if (e is InterruptedException) {
-                    println(e.stackTrace)
+                if (e !is InterruptedException) {
+                    println(e.stackTrace.toString())
                 }
             }
         }
