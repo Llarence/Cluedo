@@ -26,7 +26,7 @@ class Server(private val numPlayers: Int) {
                 if (e is InterruptedException) {
                     throw e
                 } else {
-                    println(e.stackTrace.toString())
+                    println(e.toString())
                 }
             }
         }
