@@ -23,7 +23,9 @@ class Server(private val numPlayers: Int) {
             try {
                 return function()
             } catch (e: Exception) {
-                if (e !is InterruptedException) {
+                if (e is InterruptedException) {
+                    throw e
+                } else {
                     println(e.stackTrace.toString())
                 }
             }
@@ -206,7 +208,7 @@ class Server(private val numPlayers: Int) {
         } else {
             val room = (location as RoomLocation).room
             if (room != null) {
-                println("   They moved to $room")
+                println("   They moved to the $room")
             } else {
                 println("   They moved to the Cluedo")
             }
@@ -225,7 +227,7 @@ class Server(private val numPlayers: Int) {
 
         sendAlert(AlertRumor(rumorData.person, rumorData.weapon))
 
-        println("   They started a rumor that ${rumorData.person} did it in $room with the ${rumorData.weapon}")
+        println("   They started a rumor that ${rumorData.person} did it in the $room with the ${rumorData.weapon}")
 
         val accusedIndex = players.indexOfFirst { it.second.person == rumorData.person }
         val accused = players[accusedIndex]
@@ -312,7 +314,7 @@ class Server(private val numPlayers: Int) {
 
                 wasCounterExample = true
 
-                println("   ${respondingPlayer.second.person} had a counter example $card")
+                println("   ${respondingPlayer.second.person} had a counter example")
                 break
             }
         }
@@ -333,12 +335,12 @@ class Server(private val numPlayers: Int) {
 
         return if (guessData.person == truth.first && guessData.weapon == truth.second && guessData.room == truth.third) {
             sendAlert(AlertWin(player.second.person))
-            println("   They won with the guess ${guessData.person} in ${guessData.room} with ${guessData.weapon}")
+            println("   They won with the guess ${guessData.person} in the ${guessData.room} with the ${guessData.weapon}")
             true
         } else {
             sendAlert(AlertElimination(player.second.person))
             eliminatedPlayers.add(player)
-            println("   They lost with the guess ${guessData.person} in ${guessData.room} with ${guessData.weapon}")
+            println("   They lost with the guess ${guessData.person} in the ${guessData.room} with the ${guessData.weapon}")
             false
         }
     }
@@ -382,6 +384,7 @@ class Server(private val numPlayers: Int) {
 
             if (eliminatedPlayers.size == 6) {
                 println("No players left")
+                println("The answer was ${truth.first} in the ${truth.second} with the ${truth.third}")
                 break
             }
         }
@@ -390,7 +393,7 @@ class Server(private val numPlayers: Int) {
             chatThread.interrupt()
             chatThread.join()
         }
-        println("Chat Closed")
+        println("Closed chat")
 
         closeAll()
         println("Closed connections")

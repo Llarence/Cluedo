@@ -95,13 +95,9 @@ class HardAI(address: InetAddress) : AI(address) {
                         }
                     }
 
-                    val starterIndex = players.indexOfLast { it.person == event.rumorStarter }
-                    for (i in starterIndex + 1 until starterIndex + players.size) {
-                        val person = players[i % players.size].person
-
-                        if (!playingPlayers.any { it.person == person }) {
-                            continue
-                        }
+                    val starterIndex = playingPlayers.indexOfLast { it.person == event.rumorStarter }
+                    for (i in starterIndex + 1 until starterIndex + playingPlayers.size) {
+                        val person = playingPlayers[i % playingPlayers.size].person
 
                         if (person == event.response?.first) {
                             break

@@ -32,7 +32,7 @@ fun initServer() {
         exitProcess(0)
     }
 
-    val choice = if (numPlayers - numEasyAIs - numMediumAIs > 0) {
+    val choice = if (numPlayers - numEasyAIs - numMediumAIs - numHardAIs > 0) {
         JOptionPane.showOptionDialog(null, "What would you like to do?", "Please select", JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, arrayOf("Observe", "Join"), 0)
     } else {
         0

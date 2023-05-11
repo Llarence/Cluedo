@@ -11,7 +11,7 @@ import javax.swing.text.*
 class ChatWindow(observer: Boolean, private val onSend: (String) -> Unit) : JFrame() {
     private val textBox = JTextPane()
 
-    val button: JButton?
+    private val button: JButton?
 
     init {
         title = "Chat"
