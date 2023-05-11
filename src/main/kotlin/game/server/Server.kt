@@ -2,7 +2,6 @@ package game.server
 
 import game.shared.*
 import java.net.ServerSocket
-import java.util.regex.Pattern
 import kotlin.random.Random
 import kotlin.random.nextInt
 
@@ -16,7 +15,6 @@ class Server(private val numPlayers: Int) {
     private lateinit var truth: Triple<People, Weapons, Rooms>
 
     private val chatThreads = mutableListOf<Thread>()
-    private val pattern = Pattern.compile("[A-Za-z0-9\".,'_ ]")
 
     private fun <T : Any?> tryUntil(function: () -> T): T {
         while (true) {
@@ -382,7 +380,7 @@ class Server(private val numPlayers: Int) {
                 }
             }
 
-            if (eliminatedPlayers.size == 6) {
+            if (eliminatedPlayers.size == People.values().size) {
                 println("No players left")
                 println("The answer was ${truth.first} in the ${truth.second} with the ${truth.third}")
                 break

@@ -1,9 +1,9 @@
 package game.rendering
 
 import game.shared.ChatMessage
+import game.shared.pattern
 import java.awt.BorderLayout
 import java.awt.Panel
-import java.util.regex.Pattern
 import javax.swing.*
 import javax.swing.text.*
 
@@ -29,8 +29,6 @@ class ChatWindow(observer: Boolean, private val onSend: (String) -> Unit) : JFra
 
             val input = JTextField()
             (input.document as PlainDocument).documentFilter = object : DocumentFilter() {
-                private val pattern = Pattern.compile("[A-Za-z0-9\".,'_ ]")
-
                 override fun replace(fb: FilterBypass, offset: Int, length: Int, text: String, attrs: AttributeSet?) {
                     if (text == "" || pattern.matcher(text).find()) {
                         super.replace(fb, offset, length, text, attrs)

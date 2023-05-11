@@ -2,6 +2,9 @@ package game.shared
 
 import java.awt.Color
 import java.io.Serializable
+import java.util.regex.Pattern
+
+val pattern: Pattern = Pattern.compile("[A-Za-z0-9\".,' ]")!!
 
 enum class People(private val readableName: String, val color: Color) {
     PLUM("Plum", Color(149, 46, 255)),
