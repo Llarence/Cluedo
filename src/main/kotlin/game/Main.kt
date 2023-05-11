@@ -118,7 +118,7 @@ fun initClient() {
     }
 }
 
-// Replace all Reentrant locks with semaphores
+// Replace all Reentrant locks with Semaphores
 fun main() {
     try {
         UIManager.setLookAndFeel(FlatDarculaLaf())

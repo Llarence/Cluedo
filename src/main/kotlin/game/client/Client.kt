@@ -44,7 +44,7 @@ abstract class Client(address: InetAddress, private val observer: Boolean) {
                 val packet: Packet
                 try {
                     packet = connection.receivePacket()
-                } catch (_: java.lang.Exception) {
+                } catch (_: Exception) {
                     chatThread.interrupt()
                     chatThread.join()
                     return
