@@ -39,10 +39,14 @@ fun initServer() {
     }
 
     val client: DisplayClient
+    val server: Thread
+    val aiClients: MutableList<Thread>
     try {
-        Thread {
+        server = Thread {
             Server(numPlayers).run()
-        }.start()
+        }
+
+        server.start()
 
         Thread.sleep(500)
 
@@ -52,29 +56,46 @@ fun initServer() {
             DisplayClient(InetAddress.getLocalHost(), false)
         }
 
+        aiClients = mutableListOf()
+
         for (i in 0 until numEasyAIs) {
-            Thread {
+            val aiClient = Thread {
                 EasyAI(InetAddress.getLocalHost()).run()
-            }.start()
+            }
+            aiClient.start()
+
+            aiClients.add(aiClient)
         }
 
         for (i in 0 until numMediumAIs) {
-            Thread {
+            val aiClient = Thread {
                 MediumAI(InetAddress.getLocalHost()).run()
-            }.start()
+            }
+            aiClient.start()
+
+            aiClients.add(aiClient)
         }
 
         for (i in 0 until numHardAIs) {
-            Thread {
+            val aiClient = Thread {
                 HardAI(InetAddress.getLocalHost()).run()
-            }.start()
+            }
+            aiClient.start()
+
+            aiClients.add(aiClient)
         }
     } catch (_: Exception) {
         JOptionPane.showMessageDialog(null, "Failed to connect")
         exitProcess(0)
     }
 
-    client.run()
+    Thread { client.run() }.start()
+
+    server.join()
+    for (aiClient in aiClients) {
+        aiClient.interrupt()
+        aiClient.join()
+    }
 }
 
 fun initClient() {

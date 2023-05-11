@@ -17,8 +17,6 @@ abstract class Client(address: InetAddress, private val observer: Boolean) {
 
     internal lateinit var self: People
 
-    private var done = false
-
     private fun runChat() {
         try {
             while (true) {
@@ -36,85 +34,91 @@ abstract class Client(address: InetAddress, private val observer: Boolean) {
 
     fun run() {
         val chatThread = Thread { runChat() }
-        chatThread.start()
 
-        connection.sendPacket(IsObserver(observer))
+        try {
+            chatThread.start()
 
-        while (true) {
-            val packet: Packet
-            try {
-                packet = connection.receivePacket()
-            } catch (_: java.lang.Exception) {
-                done = true
-                chatThread.interrupt()
-                chatThread.join()
-                return
-            }
+            connection.sendPacket(IsObserver(observer))
 
-            when (packet) {
-                is AlertPlayerPick -> {
-                    onPersonPicked(packet.person)
+            while (true) {
+                val packet: Packet
+                try {
+                    packet = connection.receivePacket()
+                } catch (_: java.lang.Exception) {
+                    chatThread.interrupt()
+                    chatThread.join()
+                    return
                 }
 
-                is AlertHand -> {
-                    onHand(packet.cards)
-                }
-
-                is AlertPublicCards -> {
-                    onPublicCards(packet.cards)
-                }
-
-                is AlertMoveTo -> {
-                    onMoveTo(packet.playerData)
-                }
-
-                is AlertRumor -> {
-                    onRumor(packet.person, packet.weapon)
-                }
-
-                is AlertCounterExample -> {
-                    onCounterExample(packet.person, packet.card)
-                }
-
-                is AlertClueGuess -> {
-                    onClueGuess(packet.person, packet.weapon, packet.room)
-                }
-
-                is AlertWin -> {
-                    onWin(packet.winner)
-                }
-
-                is AlertElimination -> {
-                    onElimination(packet.eliminatee)
-                }
-            }
-
-            if (!observer) {
                 when (packet) {
-                    is RequestPlayerPick -> {
-                        self = pick()
-                        connection.sendPacket(RespondPlayerPick(self))
+                    is AlertPlayerPick -> {
+                        onPersonPicked(packet.person)
                     }
 
-                    is RequestMoveTo -> {
-                        connection.sendPacket(RespondMoveTo(getMove(packet.moves)))
+                    is AlertHand -> {
+                        onHand(packet.cards)
                     }
 
-                    is RequestRumor -> {
-                        val data = startRumor()
-                        connection.sendPacket(RespondRumor(data.first, data.second))
+                    is AlertPublicCards -> {
+                        onPublicCards(packet.cards)
                     }
 
-                    is RequestCounterExample -> {
-                        connection.sendPacket(RespondCounterExample(getCounterExample()))
+                    is AlertMoveTo -> {
+                        onMoveTo(packet.playerData)
                     }
 
-                    is RequestClueGuess -> {
-                        val data = getGuess()
-                        connection.sendPacket(RespondClueGuess(data.first, data.second, data.third))
+                    is AlertRumor -> {
+                        onRumor(packet.person, packet.weapon)
+                    }
+
+                    is AlertCounterExample -> {
+                        onCounterExample(packet.person, packet.card)
+                    }
+
+                    is AlertClueGuess -> {
+                        onClueGuess(packet.person, packet.weapon, packet.room)
+                    }
+
+                    is AlertWin -> {
+                        onWin(packet.winner)
+                    }
+
+                    is AlertElimination -> {
+                        onElimination(packet.eliminatee)
+                    }
+                }
+
+                if (!observer) {
+                    when (packet) {
+                        is RequestPlayerPick -> {
+                            self = pick()
+                            connection.sendPacket(RespondPlayerPick(self))
+                        }
+
+                        is RequestMoveTo -> {
+                            connection.sendPacket(RespondMoveTo(getMove(packet.moves)))
+                        }
+
+                        is RequestRumor -> {
+                            val data = startRumor()
+                            connection.sendPacket(RespondRumor(data.first, data.second))
+                        }
+
+                        is RequestCounterExample -> {
+                            connection.sendPacket(RespondCounterExample(getCounterExample()))
+                        }
+
+                        is RequestClueGuess -> {
+                            val data = getGuess()
+                            connection.sendPacket(RespondClueGuess(data.first, data.second, data.third))
+                        }
                     }
                 }
             }
+        } catch (e: InterruptedException) {
+            chatThread.interrupt()
+            chatThread.join()
+            return
         }
     }
 
