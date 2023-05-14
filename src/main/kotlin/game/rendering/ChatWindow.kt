@@ -7,7 +7,6 @@ import java.awt.Panel
 import javax.swing.*
 import javax.swing.text.*
 
-
 class ChatWindow(observer: Boolean, private val onSend: (String) -> Unit) : JFrame() {
     private val textBox = JTextPane()
 
