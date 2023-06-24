@@ -44,6 +44,7 @@ jar {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
 }
+
 kotlin {
     jvmToolchain(11)
 }
